@@ -1,0 +1,8 @@
+# edit local.rules and add rule
+sudo tee -a /etc/snort/rules/local.rules > /dev/null <<'RULE'
+alert tcp any any -> any 80 (msg:"Possible Sensitive Path Access"; flow:to_server,established; content:"GET"; http_method; content:"/admin"; http_uri; nocase; sid:1000001; rev:1;)
+RULE
+# ensure local.rules is included in snort.conf then run snort
+sudo snort -A console -q -c /etc/snort/snort.conf -i eth0
+# simulate attacker HTTP GET
+curl -v http://localhost/secret/admin/config
