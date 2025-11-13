@@ -1,0 +1,31 @@
+# enable syslog output in snort.conf (edit)
+sudo sed -i "s/^#\(output alert_syslog:.*\)/\1/" /etc/snort/snort.conf || true
+# create rsyslog rule to pipe Snort to mailer
+sudo tee /etc/rsyslog.d/snort-email.conf > /dev/null <<'EOF'
+if ($programname == 'snort') then {
+    action(type="omprog" binary="/usr/local/bin/snort-mailer.py")
+}
+EOF
+sudo systemctl restart rsyslog
+# create Python mailer
+sudo tee /usr/local/bin/snort-mailer.py > /dev/null <<'PY'
+#!/usr/bin/env python3
+import sys, smtplib
+from email.message import EmailMessage
+SMTP_SERVER="smtp.gmail.com"; SMTP_PORT=587
+SMTP_USER="yourgmail@gmail.com"; SMTP_PASS="your_app_password_here"
+TO_EMAIL="admin@gmail.com"
+alert_body = sys.stdin.read()
+if alert_body.strip():
+    msg = EmailMessage()
+    msg.set_content(alert_body)
+    msg['Subject']="Snort Alert on localhost"
+    msg['From']=SMTP_USER; msg['To']=TO_EMAIL
+    with smtplib.SMTP(SMTP_SERVER, SMTP_PORT) as s:
+        s.starttls(); s.login(SMTP_USER, SMTP_PASS); s.send_message(msg)
+PY
+sudo chmod +x /usr/local/bin/snort-mailer.py
+# run snort on loopback to test and trigger events (e.g., ping)
+sudo snort -A console -q -c /etc/snort/snort.conf -i lo
+# trigger test alert
+ping -c 2 127.0.0.1
